@@ -1,2 +1,2 @@
-# yfs-distributed-file-system-
+# yfs-distributed-file-system
 c++ labs for MIT distributed system
