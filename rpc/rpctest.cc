@@ -18,11 +18,7 @@
 #include "jsl_log.h"
 #include "gettime.h"
 
-<<<<<<< HEAD
-#define THRES	10000.0
-=======
 #define THRES	128000 // adjusted based on initial default.
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 #ifdef __APPLE__
 #include<mach/mach.h>
 #endif
@@ -275,10 +271,7 @@ client4(void *xx)
     printf(" (final) ...");
     if (!(final - initial < THRES)) {
         printf(" difference too large\n");
-<<<<<<< HEAD
-=======
 				printf(" The difference is %lf\n", final - initial);
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
     }
 	assert(final - initial < THRES);
 	return 0;

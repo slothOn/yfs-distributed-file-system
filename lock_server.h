@@ -9,8 +9,6 @@
 #include "lock_client.h"
 #include "rpc.h"
 
-<<<<<<< HEAD
-=======
 #include <pthread.h>
 #include <unordered_map>
 
@@ -51,18 +49,10 @@ class Lock {
     }
 };
 
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 class lock_server {
 
  protected:
   int nacquire;
-<<<<<<< HEAD
-
- public:
-  lock_server();
-  ~lock_server() {};
-  lock_protocol::status stat(int clt, lock_protocol::lockid_t lid, int &);
-=======
   std::unordered_map<lock_protocol::lockid_t, Lock*>* lock_map;
   pthread_mutex_t map_opr_mutex;
 
@@ -72,17 +62,7 @@ class lock_server {
   lock_protocol::status stat(int clt, lock_protocol::lockid_t lid, int &);
   lock_protocol::status acquire(int clt, lock_protocol::lockid_t lid, int &);
   lock_protocol::status release(int clt, lock_protocol::lockid_t lid, int &);
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 };
 
 #endif 
 
-<<<<<<< HEAD
-
-
-
-
-
-
-=======
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192

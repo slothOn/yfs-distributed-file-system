@@ -6,11 +6,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-<<<<<<< HEAD
-lock_server::lock_server():
-  nacquire (0)
-{
-=======
 #include<unordered_map>
 
 lock_server::lock_server():
@@ -27,7 +22,6 @@ lock_server::~lock_server()
     delete iter->second;
   }
   delete this->lock_map;
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 }
 
 lock_protocol::status
@@ -39,8 +33,6 @@ lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r)
   return ret;
 }
 
-<<<<<<< HEAD
-=======
 lock_protocol::status
 lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r)
 {
@@ -86,6 +78,4 @@ lock_server::release(int clt, lock_protocol::lockid_t lid, int &r)
   pthread_cond_signal(&(lock->GetCond()));
   return lock_protocol::OK;
 }
-
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 

@@ -27,11 +27,8 @@ main(int argc, char *argv[])
   lock_server ls;
   rpcs server(atoi(argv[1]));
   server.reg(lock_protocol::stat, &ls, &lock_server::stat);
-<<<<<<< HEAD
-=======
   server.reg(lock_protocol::acquire, &ls, &lock_server::acquire);
   server.reg(lock_protocol::release, &ls, &lock_server::release);
->>>>>>> 5f4b8bd1be257b135da73f3ba854cb5e97908192
 #endif
 
 
