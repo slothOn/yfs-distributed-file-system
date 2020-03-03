@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 #include "yfs_client.h"
+#include <vector>
 
 int myid;
 yfs_client *yfs;
@@ -125,10 +126,20 @@ yfs_client::status
 fuseserver_createhelper(fuse_ino_t parent, const char *name,
      mode_t mode, struct fuse_entry_param *e)
 {
-  // You fill this in
-  return yfs_client::NOENT;
+  e->attr_timeout = 0.0;
+  e->entry_timeout = 0.0;
+
+  yfs_client::inum pinum = parent; 
+  int ninum;
+  yfs_client::status create_status = yfs->createfile(pinum, name, false, ninum);
+  e->ino = ninum;
+  struct stat st;
+  getattr(e->ino, st);
+  e->attr = st;
+  return create_status;
 }
 
+// Required in lab2
 void
 fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
    mode_t mode, struct fuse_file_info *fi)
@@ -141,6 +152,7 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
   }
 }
 
+// Required in lab2
 void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent, 
     const char *name, mode_t mode, dev_t rdev ) {
   struct fuse_entry_param e;
@@ -151,6 +163,7 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
   }
 }
 
+// Required in lab2
 void
 fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
@@ -164,7 +177,13 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
-
+  yfs_client::inum pinum = parent; 
+  yfs_client::inum cinum = yfs->ilookup(pinum, name);
+  if (cinum != 0) {
+    found = true;
+    e.ino = cinum;
+    getattr(cinum, e.attr);  
+  }
   if (found)
     fuse_reply_entry(req, &e);
   else
@@ -199,6 +218,7 @@ int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
     return fuse_reply_buf(req, NULL, 0);
 }
 
+// Required in lab2
 void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
           off_t off, struct fuse_file_info *fi)
@@ -209,32 +229,32 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   printf("fuseserver_readdir\n");
 
- if(!yfs->isdir(inum)){
+  if(!yfs->isdir(inum)){
     fuse_reply_err(req, ENOTDIR);
     return;
   }
 
   memset(&b, 0, sizeof(b));
 
+  // fill in the b data structure using dirbuf_add
+  std::vector<std::pair<std::string, yfs_client::inum> > diritems; 
+  yfs->readdir(inum, diritems);
+  std::vector<std::pair<std::string, yfs_client::inum> >::iterator iter = diritems.begin();
+  for (; iter != diritems.end(); iter++)
+  {
+    dirbuf_add(&b, (*iter).first.c_str(), (*iter).second);
+  }
 
-   // fill in the b data structure using dirbuf_add
+  reply_buf_limited(req, b.p, b.size, off, size);
+  free(b.p);
+}
 
-
-   reply_buf_limited(req, b.p, b.size, off, size);
-   free(b.p);
- }
-
-
+// Required in lab2
 void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
-  // You fill this in
-#if 0
   fuse_reply_open(req, fi);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
 }
 
 void

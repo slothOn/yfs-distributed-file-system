@@ -7,7 +7,7 @@
 #include <vector>
 
 
-  class yfs_client {
+class yfs_client {
   extent_client *ec;
  public:
 
@@ -41,6 +41,9 @@
   bool isfile(inum);
   bool isdir(inum);
   inum ilookup(inum di, std::string name);
+  int createfile(inum pinum, std::string file_name, bool is_dir, int& ninum);
+  int readfile(inum inum, std::string &content);
+  int readdir(inum inum, std::vector<std::pair<std::string, yfs_client::inum> > &diritems);
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
