@@ -79,4 +79,3 @@ lock_server::release(int clt, lock_protocol::lockid_t lid, int &r)
   return lock_protocol::OK;
 }
 
-

@@ -45,7 +45,7 @@ check_release(lock_protocol::lockid_t lid)
   pthread_mutex_lock(&count_mutex);
   int x = lid & 0xff;
   if(ct[x] != 1){
-    fprintf(stdout, "error: client released un-held lock %016llx\n",  lid);
+    fprintf(stderr, "error: client released un-held lock %016llx\n",  lid);
     exit(1);
   }
   ct[x] -= 1;
