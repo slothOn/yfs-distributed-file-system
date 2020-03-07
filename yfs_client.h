@@ -9,6 +9,7 @@
 
 class yfs_client {
   extent_client *ec;
+  unsigned long long num_mask = 0xffffffff;
  public:
 
   typedef unsigned long long inum;

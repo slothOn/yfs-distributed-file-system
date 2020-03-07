@@ -67,6 +67,7 @@ void
 fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
           struct fuse_file_info *fi)
 {
+    printf("fuse getattr func was called\n");
     struct stat st;
     yfs_client::inum inum = ino; // req->in.h.nodeid;
     yfs_client::status ret;
@@ -126,11 +127,12 @@ yfs_client::status
 fuseserver_createhelper(fuse_ino_t parent, const char *name,
      mode_t mode, struct fuse_entry_param *e)
 {
+  printf("fuse createhelper func was called with name as %s\n", name);
   e->attr_timeout = 0.0;
   e->entry_timeout = 0.0;
 
   yfs_client::inum pinum = parent; 
-  int ninum;
+  int ninum = 0;
   yfs_client::status create_status = yfs->createfile(pinum, name, false, ninum);
   e->ino = ninum;
   struct stat st;
@@ -144,6 +146,7 @@ void
 fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
    mode_t mode, struct fuse_file_info *fi)
 {
+  printf("fuse create func was called\n");
   struct fuse_entry_param e;
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
@@ -155,6 +158,7 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 // Required in lab2
 void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent, 
     const char *name, mode_t mode, dev_t rdev ) {
+  printf("fuse mknod func was called\n");
   struct fuse_entry_param e;
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
@@ -167,6 +171,7 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
 void
 fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
+  printf("fuse lookup func was called with name as %s\n", name);
   struct fuse_entry_param e;
   bool found = false;
 
@@ -223,6 +228,7 @@ void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
           off_t off, struct fuse_file_info *fi)
 {
+  printf("fuse readdir func was called\n");
   yfs_client::inum inum = ino; // req->in.h.nodeid;
   struct dirbuf b;
   yfs_client::dirent e;
@@ -254,6 +260,7 @@ void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
+  printf("fuse open func was called\n");
   fuse_reply_open(req, fi);
 }
 

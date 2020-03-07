@@ -15,6 +15,10 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
   srand(time(NULL));
+
+  // initialize root directory
+  inum root_inum = 1;
+  ec->put(root_inum, "");
 }
 
 yfs_client::inum
@@ -51,9 +55,11 @@ yfs_client::isdir(inum inum)
 int yfs_client::createfile(inum pinum, std::string file_name, bool is_dir, int& ninum)
 {
   int r = OK;
+  
+  pinum = pinum & num_mask;
 
-  inum rinum = rand();
-  if (is_dir) {
+  inum rinum = rand() % 0xffffffff + 1;
+  if (!is_dir) {
     rinum = rinum | 0x80000000;
   } else {
     rinum = rinum & 0x7fffffff;
@@ -75,6 +81,8 @@ int yfs_client::createfile(inum pinum, std::string file_name, bool is_dir, int& 
 
 yfs_client::inum yfs_client::ilookup(yfs_client::inum di, std::string name)
 {
+  di = di & num_mask;
+
   std::string dircontent;
   ec->get(di, dircontent);
 
@@ -104,11 +112,14 @@ yfs_client::inum yfs_client::ilookup(yfs_client::inum di, std::string name)
 
 int yfs_client::readfile(inum finum, std::string &content)
 {
+  finum = finum & num_mask;
   return ec->get(finum, content);
 }
 
 int yfs_client::readdir(inum dinum, std::vector<std::pair<std::string, yfs_client::inum> > &diritems)
 {
+  dinum = dinum & num_mask;
+
   std::string dircontent;
   ec->get(dinum, dircontent);
 
@@ -131,12 +142,15 @@ int yfs_client::readdir(inum dinum, std::vector<std::pair<std::string, yfs_clien
 int
 yfs_client::getfile(inum inum, fileinfo &fin)
 {
-  int r = OK;
+  inum = inum & num_mask;
 
+  int r = OK;
 
   printf("getfile %016llx\n", inum);
   extent_protocol::attr a;
-  if (ec->getattr(inum, a) != extent_protocol::OK) {
+  int extent_status = ec->getattr(inum, a); 
+  if (extent_status != extent_protocol::OK) {
+    printf("extent status %d\n", extent_status);
     r = IOERR;
     goto release;
   }
@@ -155,8 +169,9 @@ yfs_client::getfile(inum inum, fileinfo &fin)
 int
 yfs_client::getdir(inum inum, dirinfo &din)
 {
-  int r = OK;
+  inum = inum & num_mask;
 
+  int r = OK;
 
   printf("getdir %016llx\n", inum);
   extent_protocol::attr a;
