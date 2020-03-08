@@ -502,7 +502,7 @@ rpcs::dispatch(djob_t *j)
 		//this client does not require at most once logic
 		stat = NEW;
 	}
-
+  // printf("stat received %d, %d, %d, %d\n", h.clt_nonce, h.xid, h.xid_rep, stat);
 	switch (stat) {
 		case NEW: //new request
 			if (counting_) {
@@ -562,6 +562,16 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 		char *b, int sz)
 {
 	ScopedLock rwl(&reply_window_m_);
+  
+	std::list<reply_t>& list = reply_window_[clt_nonce];
+
+  std::list<reply_t>::iterator it;
+	for (it = list.begin(); it != list.end(); it++) {
+		if ((*it).xid == xid) {
+			(*it).buf = b;
+			(*it).sz = sz;
+		}
+	}
 }
 
 void
@@ -585,7 +595,37 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 		unsigned int xid_rep, char **b, int *sz)
 {
 	ScopedLock rwl(&reply_window_m_);
+  
+  std::list<reply_t>& list = reply_window_[clt_nonce];
+	if (list.size() == 0) {
+		list.push_back(reply_t(xid));
+		return NEW;
+	}
 
+  if (xid < list.front().xid) {
+		return FORGOTTEN;
+	}
+
+	while (list.size() > 0 && xid_rep >= list.front().xid) {
+		list.pop_front();
+	}
+  std::list<reply_t>::iterator iter;
+	for (iter = list.begin(); iter != list.end(); iter++) {
+		if ((*iter).xid == xid) {
+			if ((*iter).buf == NULL) {
+				return INPROGRESS;
+			}
+			*b = (*iter).buf;
+			*sz = (*iter).sz;
+			return DONE;
+		}
+		if ((*iter).xid > xid) {
+			list.insert(iter, reply_t(xid));
+			return NEW;
+		}
+	}
+
+  list.push_back(reply_t(xid));
 	return NEW;
 }
 
