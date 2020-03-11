@@ -15,10 +15,6 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
   srand(time(NULL));
-
-  // initialize root directory
-  inum root_inum = 1;
-  ec->put(root_inum, "");
 }
 
 yfs_client::inum
@@ -185,6 +181,46 @@ yfs_client::getdir(inum inum, dirinfo &din)
 
  release:
   return r;
+}
+
+int
+yfs_client::setattr(inum fnum, fileinfo &fin)
+{
+  fnum = fnum & num_mask;
+  printf("yfs client setattr file: %016llx, %d\n", fnum, fin.size);
+  std::string content;
+  ec->get(fnum, content);
+  content.resize(fin.size);
+  ec->put(fnum, content);
+  return OK;
+}
+
+int
+yfs_client::readfile(inum fnum, size_t size, off_t off, char* buf)
+{
+  fnum = fnum & num_mask;
+  printf("yfs client read file: %016llx, %d, %d\n", fnum, size, off);
+  std::string content;
+  ec->get(fnum, content);
+  strcpy(buf, content.substr(off, size).data());
+  return OK;
+}
+
+int
+yfs_client::writefile(inum fnum, size_t size, off_t off, const char* buf)
+{
+  fnum = fnum & num_mask;
+  printf("yfs client write file: %d, %016llx, %d, %d\n", strlen(buf), fnum, size, off);
+  std::string content;
+  ec->get(fnum, content);
+  if (off >= content.size()) {
+    content.resize(off, '\0');
+    content.append(buf, size);  
+  } else {
+    content.replace(off, size, buf, size);
+  }
+  ec->put(fnum, content);
+  return OK;
 }
 
 

@@ -11,12 +11,14 @@
 
 extent_server::extent_server() {
   printf("extent_server starts.\n");
+  int stat;
+  this->put(1, "", stat);
 }
 
 
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
-  printf("received put with id %llu\n", id);
+  printf("received put with id %016llx\n", id);
   unsigned int cur_time = time_t(NULL);
   if (this->meta_map.count(id) == 0) {
     extent_protocol::attr file_attr;  
@@ -37,7 +39,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 {
-  printf("received get with id %llu\n", id);
+  printf("received get with id %016llx\n", id);
   if (this->meta_map.count(id) == 0) {
     return extent_protocol::NOENT;
   }
@@ -50,7 +52,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
 
 int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr &a)
 {
-  printf("received getattr with id %llu\n", id);
+  printf("received getattr with id %016llx\n", id);
   if (this->meta_map.count(id) == 0) {
     return extent_protocol::NOENT;
   }
