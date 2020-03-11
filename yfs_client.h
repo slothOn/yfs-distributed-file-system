@@ -48,6 +48,10 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+
+  int setattr(inum fnum, fileinfo &);
+  int readfile(inum fnum, size_t size, off_t off, char* buf);
+  int writefile(inum fnum, size_t size, off_t off, const char* buf);
 };
 
 #endif 

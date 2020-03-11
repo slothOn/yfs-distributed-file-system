@@ -34,7 +34,7 @@ getattr(yfs_client::inum inum, struct stat &st)
   bzero(&st, sizeof(st));
 
   st.st_ino = inum;
-  printf("getattr %016llx %d\n", inum, yfs->isfile(inum));
+  printf("getattr %016llx\n", inum);
   if(yfs->isfile(inum)){
      yfs_client::fileinfo info;
      ret = yfs->getfile(inum, info);
@@ -67,7 +67,6 @@ void
 fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
           struct fuse_file_info *fi)
 {
-    printf("fuse getattr func was called\n");
     struct stat st;
     yfs_client::inum inum = ino; // req->in.h.nodeid;
     yfs_client::status ret;
@@ -80,19 +79,19 @@ fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
     fuse_reply_attr(req, &st, 0);
 }
 
+// Required in lab3
 void
 fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set, struct fuse_file_info *fi)
 {
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
-#if 0
-    struct stat st;
-    // You fill this in
-    fuse_reply_attr(req, &st, 0);
-#else
-    fuse_reply_err(req, ENOSYS);
-#endif
+    yfs_client::inum fnum = ino;
+    yfs_client::fileinfo info;
+    info.size = attr->st_size;
+    yfs->setattr(fnum, info);
+    getattr(fnum, *attr);
+    fuse_reply_attr(req, attr, 0);
   } else {
     fuse_reply_err(req, ENOSYS);
   }
@@ -102,12 +101,10 @@ void
 fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
       off_t off, struct fuse_file_info *fi)
 {
-  // You fill this in
-#if 0
+  yfs_client::inum fnum = ino;
+  char* buf = new char[size + 1];
+  yfs->readfile(fnum, size, off, buf);
   fuse_reply_buf(req, buf, size);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
 }
 
 void
@@ -115,12 +112,9 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   const char *buf, size_t size, off_t off,
   struct fuse_file_info *fi)
 {
-  // You fill this in
-#if 0
-  fuse_reply_write(req, bytes_written);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  yfs_client::inum fnum = ino;
+  yfs->writefile(fnum, size, off, buf);
+  fuse_reply_write(req, size);
 }
 
 yfs_client::status
@@ -146,7 +140,6 @@ void
 fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
    mode_t mode, struct fuse_file_info *fi)
 {
-  printf("fuse create func was called\n");
   struct fuse_entry_param e;
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
@@ -158,7 +151,6 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 // Required in lab2
 void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent, 
     const char *name, mode_t mode, dev_t rdev ) {
-  printf("fuse mknod func was called\n");
   struct fuse_entry_param e;
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
@@ -228,7 +220,6 @@ void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
           off_t off, struct fuse_file_info *fi)
 {
-  printf("fuse readdir func was called\n");
   yfs_client::inum inum = ino; // req->in.h.nodeid;
   struct dirbuf b;
   yfs_client::dirent e;
@@ -260,7 +251,6 @@ void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
-  printf("fuse open func was called\n");
   fuse_reply_open(req, fi);
 }
 
