@@ -73,24 +73,37 @@ int yfs_client::createfile(inum pinum, std::string file_name, bool is_dir, int& 
     rinum = rinum & 0x7fffffff;
   }
 
-  ninum = rinum;
-
   std::string dircontent;
 
   lock_protocol::lockid_t _lock_id = pinum;
   lc->acquire(_lock_id);
   ec->get(pinum, dircontent);
+  
+  std::string::size_type line_end = dircontent.find("\n");
+  std::string::size_type start = 0;
+  while (line_end != dircontent.npos) {
+    std::string line = dircontent.substr(start, line_end - start);
+    std::string::size_type split_tab = line.find("\t");
+    std::string fname = line.substr(0, split_tab);
+    
+    if (file_name == fname) {
+      inum fnum = n2i(line.substr(split_tab + 1, line.size() - fname.size() - 1));
+      lc->release(_lock_id);
+      ninum = fnum;
+      return OK;
+    }
+
+    start = line_end + 1;
+    line_end = dircontent.find("\n", start);
+  }
+
   dircontent
     .append(file_name).append("\t").append(filename(rinum)).append("\n");
-  // if (dircontent.find("\n" + file_name + "\t") != dircontent.npos
-  //      || dircontent.find(file_name + "\t") == 0) {
-  //   lc->release(_lock_id);
-  //   return OK;
-  // }
   ec->put(pinum, dircontent);
   lc->release(_lock_id);
 
   ec->put(rinum, "");
+  ninum = rinum;
 
   return r;
 }
@@ -130,18 +143,6 @@ yfs_client::inum yfs_client::ilookup(yfs_client::inum di, std::string name)
 
   return 0;
 }
-
-/*
-int yfs_client::readfile(inum finum, std::string &content)
-{
-  finum = finum & num_mask;
-  lock_protocol::lockid_t _lock_id = finum;
-  lc->acquire(_lock_id);
-  int status = ec->get(finum, content);
-  lc->release(_lock_id);
-  return status;
-}
-*/
 
 int yfs_client::readdir(inum dinum, std::vector<std::pair<std::string, yfs_client::inum> > &diritems)
 {
