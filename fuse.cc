@@ -46,7 +46,7 @@ getattr(yfs_client::inum inum, struct stat &st)
      st.st_mtime = info.mtime;
      st.st_ctime = info.ctime;
      st.st_size = info.size;
-     printf("   getattr -> %llu\n", info.size);
+     printf("   file: getattr -> %lu %lu %lu\n", info.atime, info.mtime, info.ctime);
    } else {
      yfs_client::dirinfo info;
      ret = yfs->getdir(inum, info);
@@ -57,7 +57,7 @@ getattr(yfs_client::inum inum, struct stat &st)
      st.st_atime = info.atime;
      st.st_mtime = info.mtime;
      st.st_ctime = info.ctime;
-     printf("   getattr -> %lu %lu %lu\n", info.atime, info.mtime, info.ctime);
+     printf("   dir: getattr -> %lu %lu %lu\n", info.atime, info.mtime, info.ctime);
    }
    return yfs_client::OK;
 }
@@ -102,7 +102,7 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
       off_t off, struct fuse_file_info *fi)
 {
   yfs_client::inum fnum = ino;
-  char* buf = new char[size + 1];
+  char* buf = new char[size];
   yfs->readfile(fnum, size, off, buf);
   fuse_reply_buf(req, buf, size);
 }
@@ -254,27 +254,44 @@ fuseserver_open(fuse_req_t req, fuse_ino_t ino,
   fuse_reply_open(req, fi);
 }
 
+// Required in lab4
 void
 fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
      mode_t mode)
 {
-#if 0
   struct fuse_entry_param e;
   // You fill this in
-  fuse_reply_entry(req, &e);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  printf("fuse mkdir func was called with name as %s\n", name);
+  e.attr_timeout = 0.0;
+  e.entry_timeout = 0.0;
+
+  yfs_client::inum pinum = parent; 
+  int ninum = 0;
+  yfs_client::status create_status = yfs->createfile(pinum, name, true, ninum);
+  if (create_status == yfs_client::OK) {
+    e.ino = ninum;
+    struct stat st;
+    getattr(e.ino, st);
+    e.attr = st;
+
+    fuse_reply_entry(req, &e);
+  } else {
+    fuse_reply_err(req, ENOSYS);
+  }
 }
 
+// Required in lab4
 void
 fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-
-  // You fill this in
-  // Success:	fuse_reply_err(req, 0);
-  // Not found:	fuse_reply_err(req, ENOENT);
-  fuse_reply_err(req, ENOSYS);
+  yfs_client::inum pinum = parent;
+  yfs_client::inum finum = yfs->ilookup(pinum, name);
+  if (finum != 0) {
+    yfs->removefile(finum, pinum);
+    fuse_reply_err(req, 0);  
+  } else {
+    fuse_reply_err(req, ENOSYS);
+  }
 }
 
 void

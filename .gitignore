@@ -1,2 +1,10 @@
 *.log
 core
+*.d
+*.o
+rpc/librpc.a
+test-lab-4-b
+test-lab-4-c
+extent_server
+lock_server
+yfs_client
