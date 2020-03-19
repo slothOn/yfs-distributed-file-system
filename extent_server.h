@@ -16,6 +16,10 @@ class extent_server {
   int get(extent_protocol::extentid_t id, std::string &);
   int getattr(extent_protocol::extentid_t id, extent_protocol::attr &);
   int remove(extent_protocol::extentid_t id, int &);
+
+ private:
+  std::map<extent_protocol::extentid_t, std::string> map; // For real data storage
+  std::map<extent_protocol::extentid_t, extent_protocol::attr> meta_map; // For meta data
 };
 
 #endif 
