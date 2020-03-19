@@ -4,11 +4,13 @@
 #include <string>
 //#include "yfs_protocol.h"
 #include "extent_client.h"
+#include "lock_client.h"
 #include <vector>
 
 
 class yfs_client {
   extent_client *ec;
+  lock_client *lc;
   unsigned long long num_mask = 0xffffffff;
  public:
 
@@ -38,6 +40,7 @@ class yfs_client {
  public:
 
   yfs_client(std::string, std::string);
+  ~yfs_client();
 
   bool isfile(inum);
   bool isdir(inum);
@@ -52,6 +55,7 @@ class yfs_client {
   int setattr(inum fnum, fileinfo &);
   int readfile(inum fnum, size_t size, off_t off, char* buf);
   int writefile(inum fnum, size_t size, off_t off, const char* buf);
+  int removefile(inum fnum, inum pinum);
 };
 
 #endif 
