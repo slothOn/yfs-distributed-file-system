@@ -8,6 +8,9 @@
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_client.h"
+#include <pthread.h>
+#include <list>
+#include <unordered_map>
 
 // Classes that inherit lock_release_user can override dorelease so that 
 // that they will be called when lock_client releases a lock.
@@ -68,6 +71,22 @@ class lock_release_user {
 // has been received.
 //
 
+class LockState {
+  enum xxstate {UNKNOWN, FREE, LOCKED, ACQUIRING, RELEASING};
+  typedef enum xxstate lock_state_c;
+  lock_state_c state;
+  pthread_mutex_t lock_mutex;
+  pthread_cond_t lock_cond;
+
+  int rpc_seq;
+
+  LockState()
+  {
+    pthread_mutexattr_init(&lock_mutex, NULL);
+    pthread_cond_init(&lock_cond, NULL);
+    rpc_seq = 0;
+  }
+}
 
 class lock_client_cache : public lock_client {
  private:
@@ -75,13 +94,23 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
+  std::string xdst;
+  std::unordered_map<lock_protocol::lockid_t, LockState>* lock_map;
+  pthread_mutex_t map_opr_mutex;
+
+  pthread_mutex_t release_list_lock;
+  pthread_cond_t release_list_cond;
+
+  std::list<> release_list;
 
  public:
   static int last_port;
+
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);
   virtual ~lock_client_cache() {};
   lock_protocol::status acquire(lock_protocol::lockid_t);
   virtual lock_protocol::status release(lock_protocol::lockid_t);
+  lock_protocol::status revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
   void releaser();
 };
 #endif
