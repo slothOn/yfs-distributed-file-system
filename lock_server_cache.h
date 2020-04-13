@@ -13,11 +13,13 @@ class ClientEntity {
  public:
   int clt_id;
   sockaddr_in clt_d;
+  int rpc_seq;
 
-  ClientEntity(int clt_id, std::string dst)
+  ClientEntity(int clt_id, std::string dst, int rpc_seq)
   {
     this->clt_id = clt_id;
     make_sockaddr(dst.c_str(), &(this->clt_d));
+    this->rpc_seq = rpc_seq;
   }
 }
 
@@ -73,7 +75,7 @@ class lock_server_cache : public lock_server {
  public:
   lock_server_cache();
   lock_protocol::status acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, std::string dst, int &);
-  lock_protocol::status release(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
+  lock_protocol::status release(int clt, lock_protocol::lockid_t lid, int &);
   void revoker();
   void retryer();
 };
