@@ -31,7 +31,7 @@ lock_server_cache::lock_server_cache()
   r = pthread_create(&th, NULL, &retrythread, (void *) this);
   assert (r == 0);
 
-  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState*>();
+  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState>();
   pthread_mutex_init(&map_opr_mutex, NULL);
   pthread_mutex_init(&revoke_list_lock, NULL);
   pthread_mutex_init(&retry_list_lock, NULL);
@@ -39,11 +39,7 @@ lock_server_cache::lock_server_cache()
 
 lock_server_cache::~lock_server_cache()
 {
-  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState*>();
-  std::unordered_map<lock_protocol::lockid_t, LockState*>::iterator iter;
-  for (iter = lock_map->begin(); iter != lock_map->end(); iter++) {
-    delete iter->second;
-  }
+  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState>();
   delete this->lock_map;
 }
 
@@ -60,7 +56,8 @@ lock_server_cache::revoker()
     while (revoke_list.empty()) {
       pthread_cond_wait(&revoke_list_cond, &revoke_list_lock);
     }
-    ClientMsg clt_msg = revoke_list.pop_front();
+    ClientMsg clt_msg = revoke_list.front();
+    revoke_list.pop_front();
     pthread_mutex_unlock(&revoke_list_lock);
     rpcc *cl = new rpcc(clt_msg.clt_entity->clt_d);
     int r;
@@ -83,7 +80,8 @@ lock_server_cache::retryer()
     while (retry_list.empty()) {
       pthread_cond_wait(&retry_list_cond, &retry_list_lock);
     }
-    ClientMsg clt_msg = retry_list.pop_front();
+    ClientMsg clt_msg = retry_list.front();
+    retry_list.pop_front();
     pthread_mutex_unlock(&retry_list_lock);
     rpcc *cl = new rpcc(clt_msg.clt_entity->clt_d);
     int r;
@@ -105,14 +103,14 @@ lock_server_cache::acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, st
   }
   LockState lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
-  ClientEntity nce = new ClientEntity(clt, dst, rpc_seq);
+  ClientEntity nce(clt, dst, rpc_seq);
   int status;
-  if (lock_state.status == lock_state_s::FREE) {
-    lock_state.status = lock_state_s::LOCKED;
+  if (lock_state.state == lock_state_s::FREE) {
+    lock_state.state = lock_state_s::LOCKED;
     lock_state.lock_owner = &nce;
     status = lock_protocol::OK;
-  } else if (lock_state.status == lock_state_s::LOCKED) {
-    waitlist.push_back(&nce);
+  } else if (lock_state.state == lock_state_s::LOCKED) {
+    lock_state.waitlist.push_back(&nce);
 
     ClientMsg revoke_msg;
     revoke_msg.clt_entity = lock_state.lock_owner;
@@ -123,8 +121,8 @@ lock_server_cache::acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, st
     pthread_cond_signal(&revoke_list_cond);
 
     status = lock_protocol::RETRY;
-  } else if (lock_state.status == lock_state_s::REVOKE_SENT) {
-    waitlist.push_back(&nce);
+  } else if (lock_state.state == lock_state_s::REVOKE_SENT) {
+    lock_state.waitlist.push_back(&nce);
     status = lock_protocol::RETRY;
   }
   pthread_mutex_unlock(&(lock_state.lock_mutex));
@@ -137,13 +135,14 @@ lock_server_cache::release(int clt, lock_protocol::lockid_t lid, int &)
   LockState lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
   
-  lock_state.status = lock_state_s::FREE;
+  lock_state.state = lock_state_s::FREE;
   delete lock_state.lock_owner;
   lock_state.lock_owner = NULL;
 
   if (!lock_state.waitlist.empty()) {
     ClientMsg retry_msg;
-    retry_msg.clt_entity = lock_state.waitlist.pop_front();
+    retry_msg.clt_entity = lock_state.waitlist.front();
+    lock_state.waitlist.pop_front();
     retry_msg.lid = lid;
     pthread_mutex_lock(&retry_list_lock);
     retry_list.push_back(retry_msg);

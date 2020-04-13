@@ -36,11 +36,14 @@ lock_client_cache::lock_client_cache(std::string xdst,
   last_port = rlock_port;
   rpcs *rlsrpc = new rpcs(rlock_port);
   /* register RPC handlers with rlsrpc */
+  rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry);
+  rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke);
+
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *) this);
   assert (r == 0);
 
-  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState*>();
+  this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState>();
   pthread_mutex_init(&map_opr_mutex, NULL);
 
   sockaddr_in xdstsock;
@@ -69,7 +72,8 @@ lock_client_cache::releaser()
     while (release_list.empty()) {
       pthread_cond_wait(&release_list_cond, &release_list_lock);
     }
-    lock_protocol::lockid_t lid = release_list.pop_front();
+    lock_protocol::lockid_t lid = release_list.front();
+    release_list.pop_front();
     pthread_mutex_unlock(&release_list_lock);
 
     LockState lock_state = lock_map->find(lid)->second;
@@ -118,7 +122,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
       pthread_mutex_unlock(&(lock_state.lock_mutex));
 
       int r = 0;
-      lock_protocal::status stat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_req, xdst, r);
+      lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, xdst, r);
       
       pthread_mutex_lock(&(lock_state.lock_mutex));
 
@@ -129,11 +133,11 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 
       lock_state.rpc_state = rpc_state_c::ACQ_RECV;
 
-      if (stat == lock_protocol::OK) {
+      if (rpcstat == lock_protocol::OK) {
         lock_state.state = lock_state_c::LOCKED;
         pthread_mutex_unlock(&(lock_state.lock_mutex));
         return lock_protocol::OK;
-      } else if (stat == lock_protocol::RETRY) {
+      } else if (rpcstat == lock_protocol::RETRY) {
         lock_state.state = lock_state_c::ACQUIRING;
         while (lock_state.rpc_state != rpc_state_c::RETRY_RECV) {
           pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
@@ -145,7 +149,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         return lock_protocol::RPCERR;
       }
       /* send rpc ends. */
-      
+
     } else if (lock_state.state == lock_state_c::LOCKED) {
       while (lock_state.state == lock_state_c::LOCKED) {
         pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
@@ -163,7 +167,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         pthread_mutex_unlock(&(lock_state.lock_mutex));
 
         int r = 0;
-        lock_protocal::status stat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_req, xdst, r);
+        lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, xdst, r);
         
         pthread_mutex_lock(&(lock_state.lock_mutex));
 
@@ -174,11 +178,11 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 
         lock_state.rpc_state = rpc_state_c::ACQ_RECV;
 
-        if (stat == lock_protocol::OK) {
+        if (rpcstat == lock_protocol::OK) {
           lock_state.state = lock_state_c::LOCKED;
           pthread_mutex_unlock(&(lock_state.lock_mutex));
           return lock_protocol::OK;
-        } else if (stat == lock_protocol::RETRY) {
+        } else if (rpcstat == lock_protocol::RETRY) {
           lock_state.state = lock_state_c::ACQUIRING;
           while (lock_state.rpc_state != rpc_state_c::RETRY_RECV) {
             pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
@@ -229,7 +233,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
   }
   lock_state.state = lock_state_c::FREE;
   pthread_mutex_unlock(&(lock_state.lock_mutex));
-  pthread_cond_signal(&lock_cond);
+  pthread_cond_signal(&(lock_state.lock_cond));
   return lock_protocol::OK;
 }
 
@@ -257,11 +261,11 @@ lock_client_cache::revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int
   return rlock_protocol::OK;
 }
 
-rlock_protocal::status 
+rlock_protocol::status 
 lock_client_cache::retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &)
 {
   if (lock_map->count(lid) == 0) {
-    return rlock_protocal::RPCERR;
+    return rlock_protocol::RPCERR;
   }
 
   LockState lock_state = lock_map->find(lid)->second;
@@ -272,7 +276,7 @@ lock_client_cache::retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int 
   }
   lock_state.rpc_state = rpc_state_c::RETRY_RECV;
   pthread_mutex_unlock(&(lock_state.lock_mutex));
-  pthread_cond_signal(&lock_cond);
+  pthread_cond_signal(&(lock_state.lock_cond));
   return rlock_protocol::OK;
 }
 

@@ -8,3 +8,4 @@ test-lab-4-c
 extent_server
 lock_server
 yfs_client
+lock_tester

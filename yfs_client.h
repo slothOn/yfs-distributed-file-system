@@ -4,13 +4,13 @@
 #include <string>
 //#include "yfs_protocol.h"
 #include "extent_client.h"
-#include "lock_client.h"
+#include "lock_client_cache.h"
 #include <vector>
 
 
 class yfs_client {
   extent_client *ec;
-  lock_client *lc;
+  lock_client_cache *lc;
   unsigned long long num_mask = 0xffffffff;
  public:
 

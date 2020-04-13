@@ -9,6 +9,9 @@
 #include <list>
 #include <unordered_map>
 
+enum xxstate {UNKNOWN, FREE, LOCKED, REVOKE_SENT};
+typedef enum xxstate lock_state_s;
+
 class ClientEntity {
  public:
   int clt_id;
@@ -21,7 +24,7 @@ class ClientEntity {
     make_sockaddr(dst.c_str(), &(this->clt_d));
     this->rpc_seq = rpc_seq;
   }
-}
+};
 
 typedef struct {
   ClientEntity* clt_entity;
@@ -34,13 +37,11 @@ class LockState {
   std::list<ClientEntity*> waitlist;
   ClientEntity* lock_owner;
 
-  enum xxstate {UNKNOWN, FREE, LOCKED, REVOKE_SENT};
-  typedef enum xxstate lock_state_s;
   lock_state_s state;
 
   LockState() 
   {
-    pthread_mutexattr_init(&lock_mutex, NULL);
+    pthread_mutex_init(&lock_mutex, NULL);
     lock_owner = NULL;
   }
 
@@ -58,7 +59,7 @@ class LockState {
       }
     }
   }
-}
+};
 
 class lock_server_cache : public lock_server {
  protected:
@@ -74,6 +75,7 @@ class lock_server_cache : public lock_server {
 
  public:
   lock_server_cache();
+  ~lock_server_cache();
   lock_protocol::status acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, std::string dst, int &);
   lock_protocol::status release(int clt, lock_protocol::lockid_t lid, int &);
   void revoker();

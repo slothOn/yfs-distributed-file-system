@@ -71,28 +71,31 @@ class lock_release_user {
 // has been received.
 //
 
+enum xxstate {FREE, LOCKED, ACQUIRING, RELEASING};
+typedef enum xxstate lock_state_c;
+
+enum rpcstate {ACQ_SENT, ACQ_RECV, REVOKE_RECV, RETRY_RECV};
+typedef enum rpcstate rpc_state_c;
+
 class LockState {
-  enum xxstate {FREE, LOCKED, ACQUIRING, RELEASING};
-  typedef enum xxstate lock_state_c;
+ public: 
   lock_state_c state;
   pthread_mutex_t lock_mutex;
   pthread_cond_t lock_cond;
 
   int rpc_seq;
-  enum rpcstate {ACQ_SENT, ACQ_RECV, REVOKE_RECV, RETRY_RECV};
-  typedef enum rpcstate rpc_state_c;
   rpc_state_c rpc_state;
 
   LockState()
   {
-    pthread_mutexattr_init(&lock_mutex, NULL);
+    pthread_mutex_init(&lock_mutex, NULL);
     pthread_cond_init(&lock_cond, NULL);
     
     state = RELEASING;
     rpc_seq = 0;
     rpc_state = REVOKE_RECV;
   }
-}
+};
 
 class lock_client_cache : public lock_client {
  private:
@@ -116,7 +119,7 @@ class lock_client_cache : public lock_client {
   lock_protocol::status acquire(lock_protocol::lockid_t);
   virtual lock_protocol::status release(lock_protocol::lockid_t);
   rlock_protocol::status revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
-  rlock_protocal::status retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
+  rlock_protocol::status retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
   void releaser();
 };
 #endif
