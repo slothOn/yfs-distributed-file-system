@@ -103,7 +103,7 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-  std::string xdst;
+  // std::string xdst;
   std::unordered_map<lock_protocol::lockid_t, LockState>* lock_map;
   pthread_mutex_t map_opr_mutex;
 
@@ -118,8 +118,8 @@ class lock_client_cache : public lock_client {
   virtual ~lock_client_cache() {};
   lock_protocol::status acquire(lock_protocol::lockid_t);
   virtual lock_protocol::status release(lock_protocol::lockid_t);
-  rlock_protocol::status revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
-  rlock_protocol::status retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &);
+  rlock_protocol::status revoke(lock_protocol::lockid_t lid, int rpc_seq, int &);
+  rlock_protocol::status retry(lock_protocol::lockid_t lid, int rpc_seq, int &);
   void releaser();
 };
 #endif

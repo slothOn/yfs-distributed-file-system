@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include "rpc.h"
 
+void print_ipv4(sockaddr_in *sin);
+
 static void *
 revokethread(void *x)
 {
@@ -56,12 +58,17 @@ lock_server_cache::revoker()
     while (revoke_list.empty()) {
       pthread_cond_wait(&revoke_list_cond, &revoke_list_lock);
     }
-    ClientMsg clt_msg = revoke_list.front();
+    ClientMsg& clt_msg = revoke_list.front();
     revoke_list.pop_front();
     pthread_mutex_unlock(&revoke_list_lock);
+
+    printf("client socket addr: ");
+    print_ipv4(&(clt_msg.clt_entity->clt_d));
+
     rpcc *cl = new rpcc(clt_msg.clt_entity->clt_d);
-    int r;
-    cl->call(rlock_protocol::revoke, cl->id(), clt_msg.lid, clt_msg.clt_entity->rpc_seq, r);
+    int r = 0;
+    int rpcstat = cl->call(rlock_protocol::revoke, clt_msg.lid, clt_msg.clt_entity->rpc_seq, r);
+    printf("revoke rpc sent for lid: %llu, rpcstat: %d\n", clt_msg.lid, rpcstat);
   }
 
 }
@@ -83,9 +90,11 @@ lock_server_cache::retryer()
     ClientMsg clt_msg = retry_list.front();
     retry_list.pop_front();
     pthread_mutex_unlock(&retry_list_lock);
+
     rpcc *cl = new rpcc(clt_msg.clt_entity->clt_d);
-    int r;
-    cl->call(rlock_protocol::retry, cl->id(), clt_msg.lid, clt_msg.clt_entity->rpc_seq, r);
+    int r = 0;
+    int rpcstat = cl->call(rlock_protocol::retry, clt_msg.lid, clt_msg.clt_entity->rpc_seq, r);
+    printf("retry rpc sent for lid: %llu, rpcstat: %d\n", clt_msg.lid, rpcstat);
   }
   
 }
@@ -101,30 +110,46 @@ lock_server_cache::acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, st
     }
     pthread_mutex_unlock(&map_opr_mutex);  
   }
-  LockState lock_state = lock_map->find(lid)->second;
+
+  LockState& lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
-  ClientEntity nce(clt, dst, rpc_seq);
+  ClientEntity* nce = new ClientEntity(clt, dst, rpc_seq);
+  printf("server 116: ");
+  print_ipv4(&(nce->clt_d));
   int status;
   if (lock_state.state == lock_state_s::FREE) {
     lock_state.state = lock_state_s::LOCKED;
-    lock_state.lock_owner = &nce;
+    lock_state.lock_owner = nce;
+
+    printf("server 123: ");
+    print_ipv4(&(lock_state.lock_owner->clt_d));
+
     status = lock_protocol::OK;
   } else if (lock_state.state == lock_state_s::LOCKED) {
-    lock_state.waitlist.push_back(&nce);
+    lock_state.waitlist.push_back(nce);
+
+    printf("server 130: ");
+    print_ipv4(&(lock_state.lock_owner->clt_d));
 
     ClientMsg revoke_msg;
     revoke_msg.clt_entity = lock_state.lock_owner;
     revoke_msg.lid = lid;
     pthread_mutex_lock(&revoke_list_lock);
+
+    printf("server 138: ");
+    print_ipv4(&(revoke_msg.clt_entity->clt_d));
+    
     revoke_list.push_back(revoke_msg);
+    lock_state.state = lock_state_s::REVOKE_SENT;
     pthread_mutex_unlock(&revoke_list_lock);
     pthread_cond_signal(&revoke_list_cond);
-
+    printf("revoke list added for %llu\n", lid);
     status = lock_protocol::RETRY;
   } else if (lock_state.state == lock_state_s::REVOKE_SENT) {
-    lock_state.waitlist.push_back(&nce);
+    lock_state.waitlist.push_back(nce);
     status = lock_protocol::RETRY;
   }
+  printf("acquire -> clt: %d received lid: %llu with status: %d, addr: %s\n", clt, lid, status == lock_protocol::OK, dst.c_str());
   pthread_mutex_unlock(&(lock_state.lock_mutex));
   return status;
 }
@@ -132,7 +157,9 @@ lock_server_cache::acquire(int clt, lock_protocol::lockid_t lid, int rpc_seq, st
 lock_protocol::status 
 lock_server_cache::release(int clt, lock_protocol::lockid_t lid, int &)
 {
-  LockState lock_state = lock_map->find(lid)->second;
+  printf("release -> clt: %d received lid: %llu\n", clt, lid);
+  
+  LockState& lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
   
   lock_state.state = lock_state_s::FREE;
@@ -154,5 +181,9 @@ lock_server_cache::release(int clt, lock_protocol::lockid_t lid, int &)
   return lock_protocol::OK;  
 }
 
+void print_ipv4(sockaddr_in *sin)
+{
+ printf("host: %s, port: %d\n", inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+}
 
 

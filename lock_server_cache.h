@@ -9,7 +9,7 @@
 #include <list>
 #include <unordered_map>
 
-enum xxstate {UNKNOWN, FREE, LOCKED, REVOKE_SENT};
+enum xxstate {FREE, LOCKED, REVOKE_SENT};
 typedef enum xxstate lock_state_s;
 
 class ClientEntity {
@@ -43,6 +43,7 @@ class LockState {
   {
     pthread_mutex_init(&lock_mutex, NULL);
     lock_owner = NULL;
+    state = FREE;
   }
 
   ~LockState() 

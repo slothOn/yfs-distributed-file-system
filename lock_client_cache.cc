@@ -52,7 +52,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
   if (cl->bind() < 0) {
     printf("lock_client_cache: call bind\n");
   }
-  this->xdst = xdst;
 }
 
 
@@ -76,7 +75,7 @@ lock_client_cache::releaser()
     release_list.pop_front();
     pthread_mutex_unlock(&release_list_lock);
 
-    LockState lock_state = lock_map->find(lid)->second;
+    LockState& lock_state = lock_map->find(lid)->second;
     pthread_mutex_lock(&(lock_state.lock_mutex));
     while (lock_state.state != lock_state_c::FREE) {
       pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
@@ -87,6 +86,7 @@ lock_client_cache::releaser()
 
     int r = 0;
     cl->call(lock_protocol::release, cl->id(), lid, r);
+    printf("release rpc sent for %llu\n", lid);
   }
 
 }
@@ -107,7 +107,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     pthread_mutex_unlock(&map_opr_mutex);
   }
 
-  LockState lock_state = lock_map->find(lid)->second;
+  LockState& lock_state = lock_map->find(lid)->second;
 
   while (true) {
     pthread_mutex_lock(&(lock_state.lock_mutex));
@@ -122,7 +122,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
       pthread_mutex_unlock(&(lock_state.lock_mutex));
 
       int r = 0;
-      lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, xdst, r);
+      lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, id, r);
       
       pthread_mutex_lock(&(lock_state.lock_mutex));
 
@@ -167,7 +167,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         pthread_mutex_unlock(&(lock_state.lock_mutex));
 
         int r = 0;
-        lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, xdst, r);
+        lock_protocol::status rpcstat = cl->call(lock_protocol::acquire, cl->id(), lid, lock_state.rpc_seq, id, r);
         
         pthread_mutex_lock(&(lock_state.lock_mutex));
 
@@ -225,7 +225,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
   if (lock_map->count(lid) == 0) {
     return lock_protocol::IOERR;
   }
-  LockState lock_state = lock_map->find(lid)->second;
+  LockState& lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
   if (lock_state.state != lock_state_c::LOCKED) {
     pthread_mutex_unlock(&(lock_state.lock_mutex));
@@ -238,13 +238,15 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
 }
 
 rlock_protocol::status 
-lock_client_cache::revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &)
+lock_client_cache::revoke(lock_protocol::lockid_t lid, int rpc_seq, int &)
 {
+  printf("revoke request received for lid: %llu\n", lid);
+
   if (lock_map->count(lid) == 0) {
     return rlock_protocol::RPCERR;
   }
   
-  LockState lock_state = lock_map->find(lid)->second;
+  LockState& lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
   if (rpc_seq != lock_state.rpc_seq) {
     pthread_mutex_unlock(&(lock_state.lock_mutex));
@@ -262,13 +264,13 @@ lock_client_cache::revoke(int clt, lock_protocol::lockid_t lid, int rpc_seq, int
 }
 
 rlock_protocol::status 
-lock_client_cache::retry(int clt, lock_protocol::lockid_t lid, int rpc_seq, int &)
+lock_client_cache::retry(lock_protocol::lockid_t lid, int rpc_seq, int &)
 {
   if (lock_map->count(lid) == 0) {
     return rlock_protocol::RPCERR;
   }
 
-  LockState lock_state = lock_map->find(lid)->second;
+  LockState& lock_state = lock_map->find(lid)->second;
   pthread_mutex_lock(&(lock_state.lock_mutex));
   if (rpc_seq != lock_state.rpc_seq) {
     pthread_mutex_unlock(&(lock_state.lock_mutex));
