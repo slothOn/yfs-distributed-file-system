@@ -71,6 +71,8 @@ lock_server_cache::revoker()
     int r = 0;
     int rpcstat = cl->call(rlock_protocol::revoke, clt_msg->lid, clt_msg->clt_entity->rpc_seq, r);
     printf("revoke rpc sent for lid: %llu, rpcstat: %d\n", clt_msg->lid, rpcstat);
+    delete cl;
+    cl = NULL;
   }
 
 }
@@ -100,6 +102,8 @@ lock_server_cache::retryer()
     int r = 0;
     int rpcstat = cl->call(rlock_protocol::retry, clt_msg->lid, clt_msg->clt_entity->rpc_seq, r);
     printf("retry rpc sent to %d for lid: %llu, rpcstat: %d\n", clt_msg->clt_entity->clt_id, clt_msg->lid, rpcstat);
+    delete cl;
+    cl = NULL;
   }
   
 }

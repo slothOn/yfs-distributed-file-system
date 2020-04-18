@@ -34,7 +34,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
   host << hname << ":" << rlock_port;
   id = host.str();
   last_port = rlock_port;
-  rpcs *rlsrpc = new rpcs(rlock_port);
+  this->rlsrpc = new rpcs(rlock_port);
   /* register RPC handlers with rlsrpc */
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry);
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke);
@@ -46,14 +46,25 @@ lock_client_cache::lock_client_cache(std::string xdst,
   this->lock_map = new std::unordered_map<lock_protocol::lockid_t, LockState>();
   pthread_mutex_init(&map_opr_mutex, NULL);
 
-  sockaddr_in xdstsock;
-  make_sockaddr(xdst.c_str(), &xdstsock);
-  cl = new rpcc(xdstsock);
-  if (cl->bind() < 0) {
-    printf("lock_client_cache: call bind\n");
-  }
 }
 
+lock_client_cache::~lock_client_cache()
+{
+  delete rlsrpc;
+  rlsrpc = nullptr;
+
+  std::unordered_map<lock_protocol::lockid_t, LockState>::iterator iter;
+  for (iter = lock_map->begin(); iter != lock_map->end(); iter++) {
+    LockState lock_state = iter->second;
+    pthread_mutex_lock(&(lock_state.lock_mutex));
+    if (lock_state.state == lock_state_c::LOCKED) {
+      int r = 0;
+      cl->call(lock_protocol::release, cl->id(), iter->first, r);
+    }
+    pthread_mutex_unlock(&(lock_state.lock_mutex));
+  }
+  delete this->lock_map;
+}
 
 void
 lock_client_cache::releaser()
@@ -95,7 +106,7 @@ lock_client_cache::releaser()
  *   if unavailable, set as ACQUIRING and blocked
  *   else LOCKED and return ok
  * LOCKED: return ok
- * ACQUIRING
+ * ACQUIRING: 
  */ 
 lock_protocol::status
 lock_client_cache::acquire(lock_protocol::lockid_t lid)

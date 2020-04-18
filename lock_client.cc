@@ -18,6 +18,12 @@ lock_client::lock_client(std::string dst)
   }
 }
 
+lock_client::~lock_client()
+{
+  delete cl;
+  cl = nullptr;
+}
+
 int
 lock_client::stat(lock_protocol::lockid_t lid)
 {

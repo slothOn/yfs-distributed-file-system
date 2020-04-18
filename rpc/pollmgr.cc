@@ -45,6 +45,7 @@ PollMgr::~PollMgr()
 void
 PollMgr::add_callback(int fd, poll_flag flag, aio_callback *ch)
 {
+	// printf("MAX_POLL_FDS: %d\n", MAX_POLL_FDS);
 	assert(fd < MAX_POLL_FDS);
 
 	ScopedLock ml(&m_);
