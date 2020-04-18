@@ -138,10 +138,13 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         pthread_mutex_unlock(&(lock_state.lock_mutex));
         return lock_protocol::OK;
       } else if (rpcstat == lock_protocol::RETRY) {
+        printf("acquire with RETRY from server\n");
         lock_state.state = lock_state_c::ACQUIRING;
         while (lock_state.rpc_state != rpc_state_c::RETRY_RECV) {
+          printf("blocked: wait for retry\n");
           pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
         }
+        printf("signal: move forward\n");
         pthread_mutex_unlock(&(lock_state.lock_mutex));
         continue;
       } else {
@@ -279,6 +282,7 @@ lock_client_cache::retry(lock_protocol::lockid_t lid, int rpc_seq, int &)
   lock_state.rpc_state = rpc_state_c::RETRY_RECV;
   pthread_mutex_unlock(&(lock_state.lock_mutex));
   pthread_cond_signal(&(lock_state.lock_cond));
+  printf("client received retry with ok status\n");
   return rlock_protocol::OK;
 }
 
@@ -287,7 +291,8 @@ bool SendRpcPreCheck(LockState& lock_state)
   while (lock_state.rpc_state == rpc_state_c::ACQ_SENT) {
     pthread_cond_wait(&(lock_state.lock_cond), &(lock_state.lock_mutex));
   }
-  if (lock_state.state != lock_state_c::RELEASING) {
+  if (lock_state.state != lock_state_c::RELEASING
+      && lock_state.state != lock_state_c::ACQUIRING) {
     pthread_mutex_unlock(&(lock_state.lock_mutex));
     return false;
   }

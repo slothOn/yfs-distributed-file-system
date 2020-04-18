@@ -46,6 +46,7 @@ class LockState {
     state = FREE;
   }
 
+  /*
   ~LockState() 
   {
     if (lock_owner != NULL) {
@@ -60,12 +61,13 @@ class LockState {
       }
     }
   }
+  */
 };
 
 class lock_server_cache : public lock_server {
  protected:
-  std::unordered_map<lock_protocol::lockid_t, LockState>* lock_map;
-  std::list<ClientMsg> revoke_list, retry_list;
+  std::unordered_map<lock_protocol::lockid_t, LockState*>* lock_map;
+  std::list<ClientMsg*> revoke_list, retry_list;
   pthread_mutex_t map_opr_mutex;
 
   pthread_mutex_t revoke_list_lock;
